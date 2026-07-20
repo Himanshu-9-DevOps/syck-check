@@ -1,0 +1,7 @@
+service:
+  name: checkout
+  timeout_seconds: 30
+  retries: 3
+payment_gateway:
+  provider: stripe
+  currency: USD
