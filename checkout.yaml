@@ -1,6 +1,6 @@
 service:
   name: checkout
-  timeout_seconds: 30
+  timeout_seconds: 45
   retries: 3
 payment_gateway:
   provider: stripe
