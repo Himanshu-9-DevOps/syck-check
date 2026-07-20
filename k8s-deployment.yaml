@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: checkout-app
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: checkout-app
