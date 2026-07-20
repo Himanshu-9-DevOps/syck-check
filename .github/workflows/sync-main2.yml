@@ -1,0 +1,74 @@
+name: Sync main2 from main
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: Sync main → main2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Capture source branch
+        id: source
+        run: echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+
+      - name: Checkout main2
+        uses: actions/checkout@v4
+        with:
+          ref: main2
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch ${{ steps.source.outputs.branch }}
+        run: git fetch origin ${{ steps.source.outputs.branch }}
+
+      - name: Attempt merge ${{ steps.source.outputs.branch }} into main2
+        id: merge
+        run: |
+          SOURCE_BRANCH="${{ steps.source.outputs.branch }}"
+
+          if git merge "origin/${SOURCE_BRANCH}" --no-commit --no-ff; then
+            git checkout HEAD -- gradle.properties docs/CHANGELOG.md
+            git add gradle.properties docs/CHANGELOG.md
+
+            if git diff --cached --quiet; then
+              echo "status=noop" >> $GITHUB_OUTPUT
+            else
+              git commit -m "chore: sync ${SOURCE_BRANCH} into main2 [skip ci]"
+              git push origin main2
+              echo "status=success" >> $GITHUB_OUTPUT
+            fi
+          else
+            git merge --abort
+            echo "status=conflict" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Open PR for manual conflict resolution
+        if: steps.merge.outputs.status == 'conflict'
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SOURCE_BRANCH="${{ steps.source.outputs.branch }}"
+          EXISTING=$(gh pr list --base main2 --head "$SOURCE_BRANCH" --state open --json number --jq '.[0].number')
+
+          if [ -n "$EXISTING" ]; then
+            URL=$(gh pr view "$EXISTING" --json url --jq .url)
+          else
+            URL=$(gh pr create --base main2 --head "$SOURCE_BRANCH" \
+              --title "chore: sync ${SOURCE_BRANCH} into main2 (manual conflict resolution needed)" \
+              --body "Automatic sync from \`${SOURCE_BRANCH}\` into \`main2\` found conflicting changes and was **not** applied automatically, to avoid overwriting work in progress on \`main2\`. Please resolve the conflicts in this PR and merge it manually.")
+          fi
+
+          echo "url=${URL}" >> $GITHUB_OUTPUT
