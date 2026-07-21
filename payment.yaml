@@ -5,7 +5,7 @@ service:
 providers:
   - stripe
   - paypal
-phonepay
-paytm
-kartik
-dipanshu
+gpay
+mipay
+himanshu
+chirag
