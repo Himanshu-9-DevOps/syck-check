@@ -1,41 +1,37 @@
 name: Sync Sync_Testing_1 from Sync_Testing
-
 on:
-  push:
-    branches:
-      - Sync_Testing
-
+  workflow_dispatch:
 permissions:
   contents: write
   pull-requests: write
-
 jobs:
   sync:
-    name: Sync Sync_Testing -> Sync_Testing_1
+    name: Sync Sync_Testing → Sync_Testing_1
     runs-on: ubuntu-latest
     steps:
+      - name: Capture source branch
+        id: source
+        run: echo "branch=Sync_Testing" >> $GITHUB_OUTPUT
       - name: Checkout Sync_Testing_1
         uses: actions/checkout@v4
         with:
           ref: Sync_Testing_1
           fetch-depth: 0
-
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Fetch Sync_Testing
-        run: git fetch origin Sync_Testing
-
-      - name: Attempt merge Sync_Testing into Sync_Testing_1
+      - name: Fetch ${{ steps.source.outputs.branch }}
+        run: git fetch origin ${{ steps.source.outputs.branch }}
+      - name: Attempt merge ${{ steps.source.outputs.branch }} into Sync_Testing_1
         id: merge
         run: |
-          if git merge origin/Sync_Testing --no-commit --no-ff; then
+          SOURCE_BRANCH="${{ steps.source.outputs.branch }}"
+          if git merge "origin/${SOURCE_BRANCH}" --no-commit --no-ff; then
             if git diff --cached --quiet; then
               echo "status=noop" >> $GITHUB_OUTPUT
             else
-              git commit -m "chore: sync Sync_Testing into Sync_Testing_1 [skip ci]"
+              git commit -m "chore: sync ${SOURCE_BRANCH} into Sync_Testing_1 [skip ci]"
               git push origin Sync_Testing_1
               echo "status=success" >> $GITHUB_OUTPUT
             fi
@@ -43,20 +39,19 @@ jobs:
             git merge --abort
             echo "status=conflict" >> $GITHUB_OUTPUT
           fi
-
       - name: Open PR for manual conflict resolution
         if: steps.merge.outputs.status == 'conflict'
+        id: pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          EXISTING=$(gh pr list --base Sync_Testing_1 --head Sync_Testing \
-            --state open --json number --jq '.[0].number')
+          SOURCE_BRANCH="${{ steps.source.outputs.branch }}"
+          EXISTING=$(gh pr list --base Sync_Testing_1 --head "$SOURCE_BRANCH" --state open --json number --jq '.[0].number')
           if [ -n "$EXISTING" ]; then
-            echo "PR already exists: #$EXISTING"
+            URL=$(gh pr view "$EXISTING" --json url --jq .url)
           else
-            gh pr create --base Sync_Testing_1 --head Sync_Testing \
-              --title "chore: sync Sync_Testing into Sync_Testing_1 (manual conflict resolution needed)" \
-              --body "Automatic sync from \`Sync_Testing\` into \`Sync_Testing_1\` found conflicting \
-          changes and was **not** applied automatically. Please resolve the conflicts in this PR and merge \
-          it manually."
+            URL=$(gh pr create --base Sync_Testing_1 --head "$SOURCE_BRANCH" \
+              --title "chore: sync ${SOURCE_BRANCH} into Sync_Testing_1 (manual conflict resolution needed)" \
+              --body "Automatic sync from \`${SOURCE_BRANCH}\` into \`Sync_Testing_1\` found conflicting changes and was **not** applied automatically. Please resolve the conflicts in this PR and merge it manually.")
           fi
+          echo "url=${URL}" >> $GITHUB_OUTPUT
