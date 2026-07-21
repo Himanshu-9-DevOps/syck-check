@@ -5,3 +5,4 @@ service:
 providers:
   - stripe
   - paypal
+phonepay
