@@ -2,3 +2,5 @@ line X - edited by main2 team
 line X - edited by main team
 devops test line - clean merge
 devops skills are on priority 
+Conflict changes
+kartik
