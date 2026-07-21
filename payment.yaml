@@ -6,3 +6,4 @@ providers:
   - stripe
   - paypal
 gpay
+mipay
