@@ -1,0 +1,86 @@
+name: Sync Sync_Testing_1 from Sync_Testing
+
+on:
+  push:
+    branches:
+      - Sync_Testing
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: Sync Sync_Testing -> Sync_Testing_1
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sync_Testing_1
+        uses: actions/checkout@v4
+        with:
+          ref: Sync_Testing_1
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch Sync_Testing
+        run: git fetch origin Sync_Testing
+
+      # Dry-run the merge just to find out if it's clean or conflicting.
+      # We always abort afterwards - the real merge happens via the PR, not here.
+      - name: Check merge status
+        id: check
+        run: |
+          if git merge origin/Sync_Testing --no-commit --no-ff; then
+            if git diff --cached --quiet; then
+              echo "status=noop" >> $GITHUB_OUTPUT
+            else
+              echo "status=clean" >> $GITHUB_OUTPUT
+            fi
+            git merge --abort || true
+          else
+            echo "status=conflict" >> $GITHUB_OUTPUT
+            git merge --abort
+          fi
+
+      - name: Create or find PR
+        if: steps.check.outputs.status != 'noop'
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh pr list --base Sync_Testing_1 --head Sync_Testing \
+            --state open --json number --jq '.[0].number')
+          if [ -n "$EXISTING" ]; then
+            echo "number=$EXISTING" >> $GITHUB_OUTPUT
+            echo "Reusing existing PR #$EXISTING"
+          else
+            URL=$(gh pr create --base Sync_Testing_1 --head Sync_Testing \
+              --title "chore: sync Sync_Testing into Sync_Testing_1" \
+              --body "Automated sync from \`Sync_Testing\` into \`Sync_Testing_1\`.")
+            NUM=$(echo "$URL" | grep -o '[0-9]*$')
+            echo "number=$NUM" >> $GITHUB_OUTPUT
+            echo "Created PR #$NUM"
+          fi
+
+      # Clean changes: turn on auto-merge so GitHub merges it the moment
+      # it's mergeable, with no manual approval needed.
+      - name: Enable auto-merge (clean changes only)
+        if: steps.check.outputs.status == 'clean'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ steps.pr.outputs.number }} --auto --merge
+
+      # Conflicting changes: leave the PR exactly as-is, open and unmerged,
+      # so it sits there until a person resolves it and approves manually.
+      - name: Flag conflict for manual review
+        if: steps.check.outputs.status == 'conflict'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ steps.pr.outputs.number }} \
+            --body "⚠️ This sync has a real conflict with \`Sync_Testing_1\`. Auto-merge was **not** enabled. Please resolve the conflict in this PR and get it manually reviewed/approved before merging."
