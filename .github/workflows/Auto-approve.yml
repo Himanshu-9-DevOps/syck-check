@@ -73,7 +73,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr merge ${{ steps.pr.outputs.number }} --auto --merge
+          gh pr merge ${{ steps.pr.outputs.number }} --merge
 
       # Conflicting changes: leave the PR exactly as-is, open and unmerged,
       # so it sits there until a person resolves it and approves manually.
