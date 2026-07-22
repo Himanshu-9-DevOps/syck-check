@@ -1,1 +1,1 @@
-# Sync Workflat pasting
+# Sync Workflat pasting and copy
