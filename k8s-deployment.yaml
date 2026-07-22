@@ -16,4 +16,4 @@ spec:
         - name: checkout-app
           image: myrepo/checkout-app:1.0.0
           ports:
-            - containerPort: 8082
+            - DockerPort: 8082
