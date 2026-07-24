@@ -1,0 +1,92 @@
+name: Sync Sync_Testing_1 from Sync_Testing
+
+on:
+  push:
+    branches: [Sync_Testing]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      WATCHED_FILES: "k8s-deployment.yaml"   # comma-separated
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Sync_Testing_1
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin Sync_Testing
+
+      # Detect changed files + merge status in one go
+      - name: Check changes & merge status
+        id: check
+        run: |
+          CHANGED=$(git diff --name-only origin/Sync_Testing_1 origin/Sync_Testing)
+          echo "changed_files<<EOF" >> $GITHUB_OUTPUT; echo "$CHANGED" >> $GITHUB_OUTPUT; echo "EOF" >> $GITHUB_OUTPUT
+
+          WATCHED="false"
+          for f in ${WATCHED_FILES//,/ }; do echo "$CHANGED" | grep -qx "$f" && WATCHED="true"; done
+          echo "watched=$WATCHED" >> $GITHUB_OUTPUT
+
+          if git merge origin/Sync_Testing --no-commit --no-ff; then
+            git diff --cached --quiet && echo "status=noop" >> $GITHUB_OUTPUT || echo "status=clean" >> $GITHUB_OUTPUT
+            git merge --abort || true
+          else
+            git merge --abort
+            echo "status=conflict" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create or reuse PR
+        if: steps.check.outputs.status != 'noop'
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NUM=$(gh pr list --base Sync_Testing_1 --head Sync_Testing --state open --json number --jq '.[0].number')
+          if [ -z "$NUM" ]; then
+            URL=$(gh pr create --base Sync_Testing_1 --head Sync_Testing \
+              --title "chore: sync Sync_Testing into Sync_Testing_1" \
+              --body "Automated sync from \`Sync_Testing\` into \`Sync_Testing_1\`.")
+            NUM=$(echo "$URL" | grep -o '[0-9]*$')
+          fi
+          echo "number=$NUM" >> $GITHUB_OUTPUT
+          echo "url=$(gh pr view "$NUM" --json url --jq .url)" >> $GITHUB_OUTPUT
+
+      - name: Merge if clean, flag if conflict
+        if: steps.check.outputs.status != 'noop'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ steps.check.outputs.status }}" = "clean" ]; then
+            gh pr merge ${{ steps.pr.outputs.number }} --merge
+          else
+            gh pr comment ${{ steps.pr.outputs.number }} \
+              --body "⚠️ Conflict with \`Sync_Testing_1\`. Please resolve manually and get this PR reviewed/approved."
+          fi
+
+      - name: Email alert for watched file change
+        if: steps.check.outputs.watched == 'true' && steps.check.outputs.status != 'noop'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: GitHub Sync Bot
+          subject: "[syck-check] Watched file changed (${{ steps.check.outputs.status }})"
+          body: |
+            Status: ${{ steps.check.outputs.status }}
+            Watched files: ${{ env.WATCHED_FILES }}
+            Changed files:
+            ${{ steps.check.outputs.changed_files }}
+            PR: ${{ steps.pr.outputs.url }}
