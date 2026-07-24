@@ -19,3 +19,4 @@ spec:
           ports:
             - KubernetesPort: 8082
             - DockerPort: 8082
+#kubernetes 
