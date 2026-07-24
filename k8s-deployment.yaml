@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: Real-app
+  name: Generic-app
 spec:
   replicas: 9
   selector:
@@ -17,3 +18,4 @@ spec:
           image: myrepo/checkout-app:1.0.0
           ports:
             - KubernetesPort: 8082
+            - DockerPort: 8082
