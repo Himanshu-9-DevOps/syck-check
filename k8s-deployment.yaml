@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: checkout-app
+  name: Generic-app
 spec:
   replicas: 2
   selector:
