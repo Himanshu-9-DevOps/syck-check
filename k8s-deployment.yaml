@@ -1,12 +1,13 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: Real-app
   name: Generic-app
 spec:
-  replicas: 2
+  replicas: 9
   selector:
     matchLabels:
-      app: checkout-app
+      app: checkout-apps and application
   template:
     metadata:
       labels:
@@ -16,4 +17,5 @@ spec:
         - name: checkout-app
           image: myrepo/checkout-app:1.0.0
           ports:
+            - KubernetesPort: 8082
             - DockerPort: 8082
