@@ -6,7 +6,7 @@ spec:
   replicas: 9
   selector:
     matchLabels:
-      app: checkout-app
+      app: checkout-apps
   template:
     metadata:
       labels:
