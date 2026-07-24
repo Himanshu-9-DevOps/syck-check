@@ -1,3 +1,4 @@
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,3 +21,4 @@ spec:
             - KubernetesPort: 8082
             - DockerPort: 8082
 #kubernetes 
+#docker
