@@ -13,7 +13,7 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     env:
-      WATCHED_FILES: "k8s-deployment.yaml"
+      WATCHED_FILES: "k8s-deployment.yaml"   # comma-separated
     steps:
       - uses: actions/checkout@v4
         with:
@@ -77,8 +77,8 @@ jobs:
         if: steps.check.outputs.watched == 'true' && steps.check.outputs.status != 'noop'
         uses: dawidd6/action-send-mail@v3
         with:
-          server_address: smtp.office365.com
-          server_port: 587
+          server_address: smtp.gmail.com
+          server_port: 465
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
           to: ${{ secrets.NOTIFY_EMAIL }}
